@@ -8,6 +8,6 @@ graceful-terminating-console-application-windows.zip: graceful-terminating-conso
 	zip -9 $@ $<
 
 clean:
-	rm -f graceful-terminating-console-application-windows.exe graceful-terminating-console-application-windows.zip
+	rm -f graceful-terminating-console-application-windows.*
 
 .PHONY: all clean

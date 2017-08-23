@@ -33,20 +33,45 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wchar.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <time.h>
+
+void LOG(const char *format, ...) {
+    time_t t;
+    time(&t);
+    char buffer[128];
+    strftime(buffer, 128, "%Y-%m-%d %H:%M:%S ", localtime(&t));
+    int l = strlen(buffer);
+    va_list args;
+    va_start(args, format);
+    vsprintf_s(buffer+l, 128-l, format, args);
+    va_end(args);
+    puts(buffer);
+    l = strlen(buffer);
+    buffer[l++] = '\n';
+    buffer[l] = 0;
+    FILE *log = fopen("graceful-terminating-console-application-windows.log", "a+");
+    fputs(buffer, log);
+    fclose(log);
+}
 
 HANDLE g_stopEvent = NULL;
 
 BOOL WINAPI consoleControlHandler(DWORD ctrlType) {
-    LPCWSTR ctrlTypeName;
+    LPCSTR ctrlTypeName;
+    #define HANDLE_CONSOLE_CONTROL_EVENT(e) case e: ctrlTypeName = #e; break;
     switch (ctrlType) {
-        case CTRL_C_EVENT:          ctrlTypeName = L"CTRL_C_EVENT";         break;
-        case CTRL_CLOSE_EVENT:      ctrlTypeName = L"CTRL_CLOSE_EVENT";     break;
-        case CTRL_BREAK_EVENT:      ctrlTypeName = L"CTRL_BREAK_EVENT";     break;
-        case CTRL_LOGOFF_EVENT:     ctrlTypeName = L"CTRL_LOGOFF_EVENT";    break;
-        case CTRL_SHUTDOWN_EVENT:   ctrlTypeName = L"CTRL_SHUTDOWN_EVENT";  break;
-        default:                    return FALSE;
+        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_C_EVENT)
+        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_CLOSE_EVENT)
+        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_BREAK_EVENT)
+        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_LOGOFF_EVENT)
+        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_SHUTDOWN_EVENT)
+        default:
+            return FALSE;
     }
-    wprintf(L"\n#### Received the console %s, gracefully terminating the application...\n\n", ctrlTypeName);
+    #undef HANDLE_CONSOLE_CONTROL_EVENT
+    LOG("Received the console %s, gracefully terminating the application...", ctrlTypeName);
     SetEvent(g_stopEvent);
     return TRUE;
 }
@@ -62,30 +87,30 @@ int wmain(int argc, wchar_t *argv[]) {
         NULL);  // event name
     if (g_stopEvent == NULL) {
         hr = HRESULT_FROM_WIN32(GetLastError());
-        wprintf(L"ERROR: Failed to create stop event with HRESULT 0x%x\n", hr);
+        LOG("ERROR: Failed to create stop event with HRESULT 0x%x", hr);
         goto cleanup;
     }
 
     if (!SetConsoleCtrlHandler(consoleControlHandler, TRUE)) {
         hr = HRESULT_FROM_WIN32(GetLastError());
-        wprintf(L"ERROR: Failed to set console control handler with HRESULT 0x%x\n", hr);
+        LOG("ERROR: Failed to set console control handler with HRESULT 0x%x", hr);
         goto cleanup;
     }
 
-    wprintf(L"Running... press CTRL+C to terminate.\n");
+    LOG("Running... press CTRL+C to terminate.");
 
     if (WAIT_OBJECT_0 != WaitForSingleObject(g_stopEvent, INFINITE)) {
         hr = HRESULT_FROM_WIN32(GetLastError());
-        wprintf(L"ERROR: Failed to wait for the stop event with HREAULT 0x%x\n", hr);
+        LOG("ERROR: Failed to wait for the stop event with HREAULT 0x%x", hr);
         goto cleanup;
     }
 
     for (; n; --n) {
-        wprintf(L"Gracefully terminating the application in T-%d...\n", n);
+        LOG("Gracefully terminating the application in T-%d...", n);
         Sleep(1000);
     }
 
-    wprintf(L"Bye bye...");
+    LOG("Bye bye...");
 
 cleanup:
     if (g_stopEvent) {

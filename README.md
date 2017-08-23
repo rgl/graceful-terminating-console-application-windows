@@ -9,3 +9,10 @@ pacman --noconfirm -Sy mingw-w64-x86_64-gcc make zip
 export PATH="/mingw64/bin:$PATH"
 make
 ```
+
+# Reference
+
+* [Windows Console](https://docs.microsoft.com/en-us/windows/console/consoles)
+* [Console CTRL+C and CTRL+BREAK Signals](https://docs.microsoft.com/en-us/windows/console/ctrl-c-and-ctrl-break-signals)
+* [SetConsoleCtrlHandler function](https://docs.microsoft.com/en-us/windows/console/setconsolectrlhandler)
+* [HandlerRoutine callback function](https://docs.microsoft.com/en-us/windows/console/handlerroutine)
