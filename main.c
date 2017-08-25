@@ -58,13 +58,14 @@ void LOG(const char *format, ...) {
 
 HANDLE g_stopEvent = NULL;
 
+// NB this handler runs in a dedicated thread.
 BOOL WINAPI consoleControlHandler(DWORD ctrlType) {
     LPCSTR ctrlTypeName;
     #define HANDLE_CONSOLE_CONTROL_EVENT(e) case e: ctrlTypeName = #e; break;
     switch (ctrlType) {
         HANDLE_CONSOLE_CONTROL_EVENT(CTRL_C_EVENT)
-        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_CLOSE_EVENT)
         HANDLE_CONSOLE_CONTROL_EVENT(CTRL_BREAK_EVENT)
+        HANDLE_CONSOLE_CONTROL_EVENT(CTRL_CLOSE_EVENT)
         HANDLE_CONSOLE_CONTROL_EVENT(CTRL_LOGOFF_EVENT)
         HANDLE_CONSOLE_CONTROL_EVENT(CTRL_SHUTDOWN_EVENT)
         default:
@@ -73,6 +74,15 @@ BOOL WINAPI consoleControlHandler(DWORD ctrlType) {
     #undef HANDLE_CONSOLE_CONTROL_EVENT
     LOG("Received the console %s, gracefully terminating the application...", ctrlTypeName);
     SetEvent(g_stopEvent);
+    switch (ctrlType) {
+        case CTRL_CLOSE_EVENT:
+        case CTRL_LOGOFF_EVENT:
+        case CTRL_SHUTDOWN_EVENT:
+            // do not return from this handler, or else, windows immediately calls TerminateProcess.
+            // NB Windows will only wait for about 5 seconds before calling TerminateProcess...
+            Sleep(INFINITE);
+            return FALSE;
+    }
     return TRUE;
 }
 
