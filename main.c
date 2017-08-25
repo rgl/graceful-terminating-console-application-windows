@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define _WIN32_WINNT 0x0501
+#define _WIN32_WINNT 0x0600
 #define WINVER _WIN32_WINNT
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <io.h>
 
 void LOG(const char *format, ...) {
     time_t t;
@@ -86,6 +87,59 @@ BOOL WINAPI consoleControlHandler(DWORD ctrlType) {
     return TRUE;
 }
 
+void logFdInformation(int fd) {
+    HANDLE h = (HANDLE)_get_osfhandle(fd);
+    if (h == INVALID_HANDLE_VALUE) {
+        LOG("ERROR: cannot get fd information because fd %d is invalid", fd);
+        return;
+    }
+
+    char *fileType = "unknown";
+    DWORD ft = GetFileType(h);
+    switch (ft) {
+        case FILE_TYPE_CHAR:
+            fileType = "console";
+            break;
+        case FILE_TYPE_DISK:
+            fileType = "disk";
+            break;
+        case FILE_TYPE_PIPE:
+            fileType = "pipe";
+            break;
+        case FILE_TYPE_REMOTE:
+            fileType = "remote";
+            break;
+        case FILE_TYPE_UNKNOWN:
+            fileType = "unknown";
+            DWORD lastError = GetLastError();
+            if (NO_ERROR != lastError) {
+                HRESULT hr = HRESULT_FROM_WIN32(lastError);
+                LOG("ERROR: Failed to GetFileType of fd %d with HRESULT 0x%x", fd, hr);
+                return;
+            }
+            break;
+        default:
+            LOG("ERROR: fd %d has unknown file type %x", fd, ft);
+            return;
+    }
+
+    if (ft == FILE_TYPE_CHAR) {
+        LOG("fd %d is a %s", fd, fileType);
+    } else {
+        DWORD size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR)*(MAX_PATH+1);
+        FILE_NAME_INFO *fileNameInfo = malloc(size);
+        if (!GetFileInformationByHandleEx(h, FileNameInfo, fileNameInfo, size)) {
+            free(fileNameInfo);
+            HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
+            LOG("ERROR: Failed to GetFileInformationByHandleEx with HRESULT 0x%x", hr);
+            return;
+        }
+        fileNameInfo->FileName[fileNameInfo->FileNameLength/sizeof(WCHAR)] = 0;
+        LOG("fd %d is a %s at %ls", fd, fileType, fileNameInfo->FileName);
+        free(fileNameInfo);
+    }
+}
+
 int wmain(int argc, wchar_t *argv[]) {
     HRESULT hr = S_OK;
     int n = argc == 2 ? _wtoi(argv[1]) : 10;
@@ -108,6 +162,11 @@ int wmain(int argc, wchar_t *argv[]) {
     }
 
     LOG("Running... press CTRL+C to terminate.");
+
+    // log stdin, stdout and stderr file descriptor information.
+    for (int fd = 0; fd < 3; ++fd) {
+        logFdInformation(fd);
+    }
 
     if (WAIT_OBJECT_0 != WaitForSingleObject(g_stopEvent, INFINITE)) {
         hr = HRESULT_FROM_WIN32(GetLastError());
