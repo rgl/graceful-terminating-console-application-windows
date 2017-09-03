@@ -161,7 +161,7 @@ int wmain(int argc, wchar_t *argv[]) {
         goto cleanup;
     }
 
-    LOG("Running... press CTRL+C to terminate.");
+    LOG("Running (pid=%d)... press CTRL+C to terminate.", GetCurrentProcessId());
 
     // log stdin, stdout and stderr file descriptor information.
     for (int fd = 0; fd < 3; ++fd) {
