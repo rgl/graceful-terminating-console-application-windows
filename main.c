@@ -49,6 +49,7 @@ void LOG(const char *format, ...) {
     vsprintf_s(buffer+l, 128-l, format, args);
     va_end(args);
     puts(buffer);
+    fflush(stdout);
     l = strlen(buffer);
     buffer[l++] = '\n';
     buffer[l] = 0;
